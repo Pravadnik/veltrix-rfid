@@ -16,6 +16,13 @@ add_executable(rfid
   transport.cpp
 )
 
+# ---- install ----
+# Installs the binary to <prefix>/bin (default prefix /usr/local).
+#   cmake --install build                       -> /usr/local/bin/rfid (needs sudo)
+#   cmake --install build --prefix ~/.local     -> ~/.local/bin/rfid   (no sudo)
+include(GNUInstallDirs)
+install(TARGETS rfid RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
 # ---- tests (ctest) ----
 enable_testing()
 add_executable(protocol_test tests/protocol_test.cpp protocol.cpp)

@@ -21,6 +21,12 @@ g++ -std=c++17 -O2 -o rfid main.cpp protocol.cpp transport.cpp
 cd build && ctest --output-on-failure
 ```
 
+Установка бинарника в PATH (чтобы вызывать просто `rfid`, без `./build/`):
+```bash
+sudo cmake --install build                     # -> /usr/local/bin/rfid
+cmake --install build --prefix ~/.local        # -> ~/.local/bin/rfid (без sudo)
+```
+
 ## Подключение
 
 Ровно один из флагов:
