@@ -73,7 +73,11 @@ public:
     }
 
     Frame read_one() {
-        return read_frame([this](size_t n) { return t_->read_exact(n); });
+        size_t skipped = 0;
+        Frame f = read_frame([this](size_t n) { return t_->read_exact(n); }, &skipped);
+        if (skipped)
+            std::fprintf(stderr, "warning: stream resynced, skipped %zu byte(s)\n", skipped);
+        return f;
     }
 
     void set_request_timeout(double seconds) { request_timeout_ = seconds; }

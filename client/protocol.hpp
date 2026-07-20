@@ -90,7 +90,12 @@ struct Frame {
 };
 
 // read_exact(n) must return exactly n bytes or throw.
-Frame read_frame(const std::function<Bytes(size_t)>& read_exact);
+//
+// Resynchronizes to the start marker: if the stream is misaligned, bytes are
+// skipped until the STX (0x43 0x4D) of the next frame. When `skipped` is
+// non-null it receives the number of bytes discarded before that STX (0 when
+// the stream was already aligned) — useful for logging line noise.
+Frame read_frame(const std::function<Bytes(size_t)>& read_exact, size_t* skipped = nullptr);
 
 struct AreaBlock {
     uint8_t start = 0;

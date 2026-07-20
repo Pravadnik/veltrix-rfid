@@ -66,18 +66,31 @@ Bytes build_frame(uint8_t cmd, const Bytes& body, uint16_t device_no, bool skip_
     return frame;
 }
 
-Frame read_frame(const std::function<Bytes(size_t)>& read_exact) {
-    Bytes header = read_exact(8);
-    if (header[0] != STX0 || header[1] != STX1) {
-        char buf[32];
-        std::snprintf(buf, sizeof(buf), "bad start bytes: %02x%02x", header[0], header[1]);
-        throw ProtocolError(buf);
+Frame read_frame(const std::function<Bytes(size_t)>& read_exact, size_t* skipped) {
+    // Resync: scan the byte stream until we land on the STX marker 0x43 0x4D.
+    // On an aligned stream the first two reads already are the STX and nothing
+    // is skipped; on a desynced stream we slide forward until the next frame.
+    size_t discarded = 0;
+    Bytes b = read_exact(1);
+    while (true) {
+        if (b[0] == STX0) {
+            Bytes b2 = read_exact(1);
+            if (b2[0] == STX1) break;  // found STX
+            ++discarded;               // the 0x43 was a false start
+            b = b2;                    // b2 may itself be the next 0x43
+            continue;
+        }
+        ++discarded;
+        b = read_exact(1);
     }
+    if (skipped) *skipped = discarded;
+
+    Bytes hdr = read_exact(6);  // cmd, eig, len(2, LE), device_no(2, LE)
     Frame f;
-    f.cmd = header[2];
-    f.eig = header[3];
-    uint16_t length = static_cast<uint16_t>(header[4] | (header[5] << 8));
-    f.device_no = static_cast<uint16_t>(header[6] | (header[7] << 8));
+    f.cmd = hdr[0];
+    f.eig = hdr[1];
+    uint16_t length = static_cast<uint16_t>(hdr[2] | (hdr[3] << 8));
+    f.device_no = static_cast<uint16_t>(hdr[4] | (hdr[5] << 8));
     int body_len = static_cast<int>(length) - 2;
     if (body_len < 0) {
         throw ProtocolError("implausible frame length field: " + std::to_string(length));
@@ -86,7 +99,7 @@ Frame read_frame(const std::function<Bytes(size_t)>& read_exact) {
     f.body.assign(rest.begin(), rest.begin() + body_len);
     f.checksum = rest[body_len];
 
-    Bytes chk = {header[6], header[7]};
+    Bytes chk = {hdr[4], hdr[5]};
     chk.insert(chk.end(), f.body.begin(), f.body.end());
     uint8_t expected = xor_checksum(chk);
     f.checksum_ok = (f.checksum == expected || f.checksum == 0xFF);
